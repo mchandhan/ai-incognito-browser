@@ -8,6 +8,8 @@ import urllib.request
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import signal
+import atexit
 
 APP_PORT = int(os.environ.get("APP_PORT", "5050"))
 BROWSER_PORT = int(os.environ.get("BROWSER_PORT", "5000"))
@@ -16,7 +18,7 @@ BROWSER_PORT = int(os.environ.get("BROWSER_PORT", "5000"))
 HEADLESS = os.environ.get("PHANTOM_HEADLESS") == "1" or "--headless" in sys.argv
 if HEADLESS:
     port = int(os.environ.get("BACKEND_PORT", str(APP_PORT)))
-    req = urllib.request.Request(f"http://localhost:{port}", headers={"User-Agent": "RAAMA"})
+    req = urllib.request.Request(f"http://localhost:{port}", headers={"User-Agent": "Phantom"})
     for _ in range(3):
         try:
             with urllib.request.urlopen(req, timeout=1.0):
@@ -86,38 +88,147 @@ STARTPAGE_HTML = """
   <title>Phantom Privacy Browser</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    body{background:#071025;color:#e6eef8;font-family:Inter,Segoe UI,Helvetica,Arial;margin:0;}
-    .wrap{max-width:980px;margin:48px auto;padding:28px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:16px;border:1px solid rgba(255,255,255,0.03)}
-    h1{font-weight:800;font-size:28px;margin:0 0 6px;color:#f8fafc}
-    p.lead{color:#94a3b8;margin:6px 0 18px}
-    .cards{display:flex;gap:12px;flex-wrap:wrap}
-    .card{flex:1 1 220px;padding:14px;border-radius:12px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.03)}
-    .card h3{margin:0 0 6px;font-size:14px;color:#cfe7ff}
-    .home-actions{margin-top:18px;display:flex;gap:10px}
-    .btn{background:#0ea5e9;color:#042033;padding:8px 14px;border-radius:10px;text-decoration:none;font-weight:700}
-    .link{color:#93c5fd;text-decoration:none}
-    .small{font-size:13px;color:#9aa9bd}
-    .search-wrap { width: min(820px, 100%); margin: 24px auto 18px; }
+    :root {
+      --bg: #121212;
+      --panel: #1a1a1a;
+      --panel-soft: #F5F5F5;
+      --text: #FFFFFF;
+      --text-dark: #000000;
+      --muted: #9E9E9E;
+      --hover: #E0E0E0;
+      --border: #9E9E9E;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, Segoe UI, Helvetica, Arial, sans-serif;
+      margin: 0;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 48px auto;
+      padding: 28px;
+      background: var(--panel);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+
+    h1 {
+      font-weight: 800;
+      font-size: 28px;
+      margin: 0 0 6px;
+      color: var(--text);
+    }
+
+    p.lead {
+      color: var(--muted);
+      margin: 6px 0 18px;
+    }
+
+    .cards {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      flex: 1 1 220px;
+      padding: 14px;
+      border-radius: 12px;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      color: var(--text-dark);
+    }
+
+    .card h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: var(--text-dark);
+    }
+
+    .home-actions {
+      margin-top: 18px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      background: var(--panel-soft);
+      color: var(--text-dark);
+      padding: 8px 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 700;
+      border: 1px solid var(--border);
+    }
+
+    .btn:hover {
+      background: var(--hover);
+    }
+
+    .link {
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .small {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .search-wrap {
+      width: min(820px, 100%);
+      margin: 24px auto 18px;
+    }
+
     .search-box {
-      display: flex; align-items: center; gap: 10px; width: 100%;
-      background: rgba(15,23,42,0.92); border: 1px solid rgba(148,163,184,0.2);
-      border-radius: 18px; padding: 10px 12px 10px 16px; box-shadow: 0 18px 48px rgba(15,23,42,0.45);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 10px 12px 10px 16px;
     }
+
     .search-box input {
-      flex: 1; border: none; background: transparent; color: #f8fafc; font-size: 18px; padding: 10px 0; outline: none;
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--text-dark);
+      font-size: 18px;
+      padding: 10px 0;
+      outline: none;
     }
-    .search-box input::placeholder { color: #64748b; }
+
+    .search-box input::placeholder {
+      color: #666666;
+    }
+
     .search-box button {
-      border: none; border-radius: 12px; background: linear-gradient(135deg, #38bdf8, #8b5cf6); color: #03131f;
-      font-weight: 800; padding: 12px 20px; cursor: pointer; font-size: 15px;
+      border: none;
+      border-radius: 12px;
+      background: var(--panel-soft);
+      color: var(--text-dark);
+      font-weight: 800;
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 15px;
+      border: 1px solid var(--border);
+    }
+
+    .search-box button:hover {
+      background: var(--hover);
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>RAAMA Privacy Browser</h1>
-    <p class="lead">Private, in-memory browsing with a built-in AI assistant.
-    Use the Copilot panel to access the AI Studio (local service).</p>
+    <h1>Phantom Privacy Browser</h1>
+    <p class="lead">Private, in-memory browsing with a built-in AI assistant. Use the Copilot panel to access the AI Studio.</p>
 
     <div class="search-wrap">
       <form class="search-box" action="https://duckduckgo.com/" method="get" target="_blank">
@@ -141,7 +252,7 @@ def start_local_browser_server(port: int = BROWSER_PORT):
     """Serve the browser landing page on a dedicated local port for the desktop browser app."""
     try:
         with urllib.request.urlopen(f"http://localhost:{port}", timeout=1.0):
-            print(f"RAAMA browser already running at http://localhost:{port}")
+            print(f"Phantom browser already running at http://localhost:{port}")
             return
     except Exception:
         pass
@@ -161,7 +272,7 @@ def start_local_browser_server(port: int = BROWSER_PORT):
     server = ThreadingHTTPServer(("0.0.0.0", port), BrowserRequestHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    print(f"RAAMA browser server started at http://localhost:{port}")
+    print(f"Phantom browser server started at http://localhost:{port}")
     print(f"LAN URL: http://10.57.162.222:{port}/")
     return server
 
@@ -234,7 +345,7 @@ class PrivacyWebPage(QWebEnginePage):
 
 
 # ── AI Copilot Sidebar Widget ─────────────────────────────────────────
-class RaamaAssistantPanel(QWidget):
+class PhantomAssistantPanel(QWidget):
     """Seamless right-docked AI Assistant panel hosting app.py."""
 
     def __init__(self, main_window, port: int, parent=None):
@@ -248,76 +359,82 @@ class RaamaAssistantPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Unified Header Bar matching browser chrome with status + controls
         header = QWidget(self)
         header.setFixedHeight(38)
         header.setStyleSheet("""
             QWidget {
-                background: #0f172a;
-                border-bottom: 1px solid #1e293b;
-                border-left: 1px solid #1e293b;
+                background: #121212;
+                border-bottom: 1px solid #9E9E9E;
+                border-left: 1px solid #9E9E9E;
             }
         """)
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(12, 0, 8, 0)
         h_layout.setSpacing(6)
 
-        title = QLabel("🤖 RAAMA Copilot", self)
+        title = QLabel("Phantom Copilot", self)
         title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        title.setStyleSheet("color: #38bdf8; border: none; background: transparent;")
+        title.setStyleSheet("color: #FFFFFF; border: none; background: transparent;")
 
         badge = QLabel("HF AI", self)
         badge.setStyleSheet("""
-            color: #818cf8;
-            background: rgba(129, 140, 248, 0.12);
-            border: 1px solid rgba(129, 140, 248, 0.25);
+            color: #000000;
+            background: #E0E0E0;
+            border: 1px solid #9E9E9E;
             border-radius: 4px;
             padding: 1px 5px;
             font-size: 10px;
             font-weight: 600;
         """)
 
-        # Status indicator and actions
-        self.copilot_status = QLabel("🔴 Disconnected", self)
-        self.copilot_status.setStyleSheet("color:#f97316; font-size:12px; padding:0 6px;")
+        self.copilot_status = QLabel("Disconnected", self)
+        self.copilot_status.setStyleSheet("color:#FFFFFF; font-size:12px; padding:0 6px;")
 
         btn_check = QPushButton("Check", self)
         btn_check.setToolTip("Check Copilot status and reload if available")
         btn_check.setFixedSize(46, 24)
         btn_check.clicked.connect(self.check_backend)
+        btn_check.setStyleSheet("""
+            QPushButton { background: #F5F5F5; color: #000000; border: 1px solid #9E9E9E; border-radius: 4px; font-size: 10px; }
+            QPushButton:hover { background: #E0E0E0; }
+        """)
 
-        btn_reload = QPushButton("🔄", self)
+        btn_reload = QPushButton("Reload", self)
         btn_reload.setToolTip("Reload AI Chat")
-        btn_reload.setFixedSize(26, 24)
+        btn_reload.setFixedSize(52, 24)
         btn_reload.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_reload.setStyleSheet("""
-            QPushButton { background: transparent; color: #94a3b8; border: none; border-radius: 4px; font-size: 11px; }
-            QPushButton:hover { background: #1e293b; color: #f8fafc; }
+            QPushButton { background: #F5F5F5; color: #000000; border: 1px solid #9E9E9E; border-radius: 4px; font-size: 10px; }
+            QPushButton:hover { background: #E0E0E0; }
         """)
         btn_reload.clicked.connect(self.reload_assistant)
 
-        btn_tab = QPushButton("↗️", self)
+        btn_tab = QPushButton("New tab", self)
         btn_tab.setToolTip("Open in New Tab")
-        btn_tab.setFixedSize(26, 24)
+        btn_tab.setFixedSize(52, 24)
         btn_tab.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_tab.setStyleSheet("""
-            QPushButton { background: transparent; color: #94a3b8; border: none; border-radius: 4px; font-size: 11px; }
-            QPushButton:hover { background: #1e293b; color: #f8fafc; }
+            QPushButton { background: #F5F5F5; color: #000000; border: 1px solid #9E9E9E; border-radius: 4px; font-size: 10px; }
+            QPushButton:hover { background: #E0E0E0; }
         """)
         btn_tab.clicked.connect(self.open_in_new_tab)
 
-        btn_ext = QPushButton("🌐", self)
+        btn_ext = QPushButton("Open", self)
         btn_ext.setToolTip("Open AI Studio in external browser")
-        btn_ext.setFixedSize(26, 24)
+        btn_ext.setFixedSize(42, 24)
+        btn_ext.setStyleSheet("""
+            QPushButton { background: #F5F5F5; color: #000000; border: 1px solid #9E9E9E; border-radius: 4px; font-size: 10px; }
+            QPushButton:hover { background: #E0E0E0; }
+        """)
         btn_ext.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"http://localhost:{self.port}")))
 
-        btn_close = QPushButton("✕", self)
+        btn_close = QPushButton("Close", self)
         btn_close.setToolTip("Hide Copilot Sidebar")
-        btn_close.setFixedSize(26, 24)
+        btn_close.setFixedSize(44, 24)
         btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_close.setStyleSheet("""
-            QPushButton { background: transparent; color: #64748b; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; }
-            QPushButton:hover { background: #1e293b; color: #f87171; }
+            QPushButton { background: #121212; color: #FFFFFF; border: 1px solid #9E9E9E; border-radius: 4px; font-size: 10px; font-weight: bold; }
+            QPushButton:hover { background: #E0E0E0; color: #000000; }
         """)
         btn_close.clicked.connect(self.main_window.toggle_assistant_panel)
 
@@ -332,10 +449,8 @@ class RaamaAssistantPanel(QWidget):
         h_layout.addWidget(btn_close)
         layout.addWidget(header)
 
-        # Embedded WebEngineView for app.py (lazy load)
         self.web_view = QWebEngineView(self)
-        self.web_view.setStyleSheet("background: #070913;")
-        # Defer loading until status is checked
+        self.web_view.setStyleSheet("background: #121212;")
         if self.check_backend():
             self.web_view.load(QUrl(f"http://localhost:{self.port}"))
         layout.addWidget(self.web_view)
@@ -344,33 +459,32 @@ class RaamaAssistantPanel(QWidget):
         if self.check_backend():
             self.web_view.reload()
         else:
-            # indicate disconnected
-            self.copilot_status.setText("🔴 Disconnected")
+            self.copilot_status.setText("Disconnected")
 
     def open_in_new_tab(self):
-        self.main_window.add_new_tab(QUrl(f"http://localhost:{self.port}"), title="🤖 RAAMA Copilot")
+        self.main_window.add_new_tab(QUrl(f"http://localhost:{self.port}"), title="Phantom Copilot")
 
     def check_backend(self) -> bool:
         """Quickly probe the local AI Studio and update status label.
         Returns True if reachable.
         """
         try:
-            req = urllib.request.Request(f"http://localhost:{self.port}", headers={"User-Agent": "RAAMA"})
+            req = urllib.request.Request(f"http://localhost:{self.port}", headers={"User-Agent": "Phantom"})
             with urllib.request.urlopen(req, timeout=1.0):
-                self.copilot_status.setText("🟢 Connected")
+                self.copilot_status.setText("Connected")
                 self.copilot_status.setStyleSheet("color:#10b981; font-size:12px; padding:0 6px;")
                 return True
         except Exception:
-            self.copilot_status.setText("🔴 Disconnected")
+            self.copilot_status.setText("Disconnected")
             self.copilot_status.setStyleSheet("color:#f97316; font-size:12px; padding:0 6px;")
             return False
 
 
 # ── Main Browser Window ───────────────────────────────────────────────
-class RaamaPrivacyBrowserWindow(QMainWindow):
+class PhantomPrivacyBrowserWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("RAAMA Privacy Browser")
+        self.setWindowTitle("Phantom Privacy Browser")
         self.resize(1380, 860)
 
         # Use fixed backend port 5050 and dedicated browser port 5000
@@ -397,7 +511,7 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
 
     def ensure_app_py_running(self):
         # Try a few quick attempts to connect to the backend first
-        req = urllib.request.Request(f"http://localhost:{self.backend_port}", headers={"User-Agent": "RAAMA"})
+        req = urllib.request.Request(f"http://localhost:{self.backend_port}", headers={"User-Agent": "Phantom"})
         for _ in range(3):
             try:
                 with urllib.request.urlopen(req, timeout=1.0):
@@ -419,6 +533,7 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
                     creationflags=(subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0),
                     env={**os.environ, "GRADIO_SERVER_PORT": str(self.backend_port)}
                 )
+                STARTED_APP_PROCESSES.append(popen)
 
                 # Wait for server to come up (polling)
                 started = False
@@ -457,14 +572,14 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
         self.add_tab_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.add_tab_btn.setStyleSheet("""
             QPushButton {
-                background: #1e293b;
-                color: #94a3b8;
-                border: none;
+                background: #F5F5F5;
+                color: #000000;
+                border: 1px solid #9E9E9E;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 15px;
             }
-            QPushButton:hover { background: #334155; color: #f8fafc; }
+            QPushButton:hover { background: #E0E0E0; }
         """)
         self.add_tab_btn.clicked.connect(lambda: self.add_new_tab())
         self.tabs.setCornerWidget(self.add_tab_btn, Qt.Corner.TopRightCorner)
@@ -472,7 +587,7 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
         self.splitter.addWidget(self.tabs)
 
         # Assistant Sidebar Panel (Collapsed by default for a clean browser experience)
-        self.assistant_panel = RaamaAssistantPanel(self, self.backend_port, self)
+        self.assistant_panel = PhantomAssistantPanel(self, self.backend_port, self)
         self.assistant_panel.setMinimumWidth(360)
         self.assistant_panel.setMaximumWidth(520)
         self.splitter.addWidget(self.assistant_panel)
@@ -489,33 +604,33 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         # Sleek Brand Label on top left
-        self.brand_label = QLabel(" 🛡️ RAAMA ", self)
+        self.brand_label = QLabel(" Phantom ", self)
         self.brand_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        self.brand_label.setStyleSheet("color: #38bdf8; padding: 0 8px 0 4px;")
+        self.brand_label.setStyleSheet("color: #FFFFFF; background: #121212; padding: 0 8px 0 4px;")
         toolbar.addWidget(self.brand_label)
 
         # Nav Buttons
-        self.new_tab_action = QAction("＋", self)
+        self.new_tab_action = QAction("New", self)
         self.new_tab_action.setToolTip("New Tab")
         self.new_tab_action.triggered.connect(lambda: self.add_new_tab())
         toolbar.addAction(self.new_tab_action)
 
-        self.back_action = QAction("◀", self)
+        self.back_action = QAction("Back", self)
         self.back_action.setToolTip("Back")
         self.back_action.triggered.connect(self.navigate_back)
         toolbar.addAction(self.back_action)
 
-        self.forward_action = QAction("▶", self)
+        self.forward_action = QAction("Forward", self)
         self.forward_action.setToolTip("Forward")
         self.forward_action.triggered.connect(self.navigate_forward)
         toolbar.addAction(self.forward_action)
 
-        self.reload_action = QAction("🔄", self)
+        self.reload_action = QAction("Reload", self)
         self.reload_action.setToolTip("Reload Page")
         self.reload_action.triggered.connect(self.reload_page)
         toolbar.addAction(self.reload_action)
 
-        self.home_action = QAction("🏠", self)
+        self.home_action = QAction("Home", self)
         self.home_action.setToolTip("Incognito Home")
         self.home_action.triggered.connect(self.navigate_home)
         toolbar.addAction(self.home_action)
@@ -528,23 +643,23 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
         self.address_bar.returnPressed.connect(self.navigate_to_url)
         self.address_bar.setStyleSheet("""
             QLineEdit {
-                background: #0b1120;
-                color: #f8fafc;
-                border: 1px solid #1e293b;
+                background: #F5F5F5;
+                color: #000000;
+                border: 1px solid #9E9E9E;
                 border-radius: 8px;
                 padding: 6px 14px;
                 font-size: 13px;
             }
             QLineEdit:focus {
-                border-color: #38bdf8;
-                background: #0d1527;
+                border-color: #9E9E9E;
+                background: #E0E0E0;
             }
         """)
         toolbar.addWidget(self.address_bar)
 
         # Native-looking Copilot Pill on the right
-        self.assistant_toggle_btn = QPushButton("🤖 Copilot", self)
-        self.assistant_toggle_btn.setToolTip("Toggle RAAMA AI Copilot Sidebar")
+        self.assistant_toggle_btn = QPushButton("Copilot", self)
+        self.assistant_toggle_btn.setToolTip("Toggle Phantom AI Copilot Sidebar")
         self.assistant_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.update_assistant_btn_style(is_active=False)
         self.assistant_toggle_btn.clicked.connect(self.toggle_assistant_panel)
@@ -560,51 +675,51 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 1px solid #1e293b;
+                border: 1px solid #9E9E9E;
                 border-radius: 5px;
-                background-color: #0b1120;
+                background-color: #121212;
             }
             QProgressBar::chunk {
-                background-color: #38bdf8;
+                background-color: #9E9E9E;
                 border-radius: 4px;
             }
         """)
         self.status_bar.addPermanentWidget(self.progress_bar)
 
-        self.shield_label = QLabel("🛡️ Blocked: 0 | 🔒 HTTPS Upgraded: 0", self)
-        self.shield_label.setStyleSheet("color: #64748b; font-size: 11px; padding: 0 8px;")
+        self.shield_label = QLabel("Blocked: 0 | HTTPS: 0", self)
+        self.shield_label.setStyleSheet("color: #FFFFFF; font-size: 11px; padding: 0 8px;")
         self.status_bar.addPermanentWidget(self.shield_label)
 
         # ── Global Stylesheet ─────────────────────────────────────────
         self.setStyleSheet("""
-            QMainWindow { background: #090d16; }
+            QMainWindow { background: #121212; }
             QToolBar {
-                background: #0f172a;
-                border-bottom: 1px solid #1e293b;
+                background: #121212;
+                border-bottom: 1px solid #9E9E9E;
                 padding: 3px 8px;
                 spacing: 4px;
             }
             QToolBar QToolButton {
                 background: transparent;
-                color: #94a3b8;
+                color: #FFFFFF;
                 border-radius: 6px;
                 padding: 4px 6px;
                 font-size: 12px;
             }
             QToolBar QToolButton:hover {
-                background: #1e293b;
-                color: #f8fafc;
+                background: #E0E0E0;
+                color: #000000;
             }
             QToolBar QToolButton:disabled {
-                color: #475569;
+                color: #9E9E9E;
             }
             QTabWidget::pane {
                 border: none;
-                background: #090d16;
+                background: #121212;
             }
             QTabBar::tab {
-                background: #0f172a;
-                color: #94a3b8;
+                background: #121212;
+                color: #FFFFFF;
                 padding: 7px 16px;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
@@ -612,25 +727,25 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
                 min-width: 130px;
                 max-width: 220px;
                 font-size: 12px;
-                border: 1px solid transparent;
+                border: 1px solid #9E9E9E;
             }
             QTabBar::tab:selected {
-                background: #090d16;
-                color: #38bdf8;
-                border-top: 2px solid #38bdf8;
+                background: #121212;
+                color: #FFFFFF;
+                border-top: 2px solid #9E9E9E;
             }
             QTabBar::tab:hover:!selected {
-                background: #1e293b;
-                color: #f8fafc;
+                background: #E0E0E0;
+                color: #000000;
             }
             QStatusBar {
-                background: #0f172a;
-                color: #94a3b8;
-                border-top: 1px solid #1e293b;
+                background: #121212;
+                color: #FFFFFF;
+                border-top: 1px solid #9E9E9E;
                 font-size: 11px;
             }
             QSplitter::handle {
-                background: #1e293b;
+                background: #9E9E9E;
                 width: 1px;
             }
         """)
@@ -639,9 +754,9 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
         if is_active:
             self.assistant_toggle_btn.setStyleSheet("""
                 QPushButton {
-                    background: rgba(56, 189, 248, 0.15);
-                    color: #38bdf8;
-                    border: 1px solid #38bdf8;
+                    background: #F5F5F5;
+                    color: #000000;
+                    border: 1px solid #9E9E9E;
                     border-radius: 8px;
                     font-weight: 600;
                     padding: 5px 14px;
@@ -649,15 +764,15 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
                     margin-left: 6px;
                 }
                 QPushButton:hover {
-                    background: rgba(56, 189, 248, 0.25);
+                    background: #E0E0E0;
                 }
             """)
         else:
             self.assistant_toggle_btn.setStyleSheet("""
                 QPushButton {
-                    background: #1e293b;
-                    color: #cbd5e1;
-                    border: 1px solid #334155;
+                    background: #121212;
+                    color: #FFFFFF;
+                    border: 1px solid #9E9E9E;
                     border-radius: 8px;
                     font-weight: 600;
                     padding: 5px 14px;
@@ -665,9 +780,9 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
                     margin-left: 6px;
                 }
                 QPushButton:hover {
-                    background: #334155;
-                    color: #38bdf8;
-                    border-color: #38bdf8;
+                    background: #E0E0E0;
+                    color: #000000;
+                    border-color: #9E9E9E;
                 }
             """)
 
@@ -825,7 +940,7 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
 
     def on_url_blocked(self, target: str):
         self.update_shield_label()
-        self.status_bar.showMessage(f"🛡️ Blocked tracker: {target[:40]}", 2000)
+        self.status_bar.showMessage(f"Blocked tracker: {target[:40]}", 2000)
 
     def on_url_upgraded(self, target: str):
         self.update_shield_label()
@@ -833,15 +948,67 @@ class RaamaPrivacyBrowserWindow(QMainWindow):
     def update_shield_label(self):
         blocked = self.interceptor.blocked_count
         upgraded = self.interceptor.upgraded_count
-        self.shield_label.setText(f"🛡️ Blocked: {blocked} | 🔒 HTTPS Upgraded: {upgraded}")
+        self.shield_label.setText(f"Blocked: {blocked} | HTTPS: {upgraded}")
+
+
+def cleanup_app_processes():
+    """Stop app.py processes started by filename.py and release port 5050."""
+    for proc in list(STARTED_APP_PROCESSES):
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except Exception:
+                    proc.kill()
+        except Exception:
+            pass
+        finally:
+            try:
+                if proc.poll() is not None:
+                    proc.stdout.close()
+            except Exception:
+                pass
+
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    "Get-NetTCPConnection -LocalPort 5050 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except Exception:
+            pass
+
+
+atexit.register(cleanup_app_processes)
+
+
+def _handle_shutdown(signum, frame):
+    cleanup_app_processes()
+    raise SystemExit(0)
+
+
+if os.name == "nt":
+    signal.signal(signal.SIGINT, _handle_shutdown)
+    signal.signal(signal.SIGTERM, _handle_shutdown)
 
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("RAAMA Privacy Browser")
-    app.setOrganizationName("RAAMA")
+    app.setApplicationName("Phantom Privacy Browser")
+    app.setOrganizationName("Phantom")
+    app.setApplicationDisplayName("Phantom")
 
-    window = RaamaPrivacyBrowserWindow()
+    window = PhantomPrivacyBrowserWindow()
     window.show()
 
     sys.exit(app.exec())

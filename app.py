@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 import sys
 import pathlib
+import socket
 from starlette.responses import HTMLResponse
 from fastapi import FastAPI
 import uvicorn
@@ -64,7 +65,7 @@ def get_client(token: str):
 def chat_stream(user_message, history, token, model, temperature, max_tokens, system_prompt):
     """Stream responses from Hugging Face OpenAI-compatible API with reasoning support."""
     if not token or not token.strip():
-        yield "⚠️ **No API token provided.** Please enter your Hugging Face token in the **Settings** panel below."
+        yield "Warning: No API token provided. Please enter your Hugging Face token in the Settings panel below."
         return
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -100,7 +101,7 @@ def chat_stream(user_message, history, token, model, temperature, max_tokens, sy
             if rc:
                 if not in_thinking:
                     in_thinking = True
-                    reasoning = "> 💭 *Thinking Process:*\n> "
+                    reasoning = "> Thinking Process:\n> "
                 reasoning += rc.replace("\n", "\n> ")
                 yield reasoning
             if c:
@@ -118,17 +119,25 @@ def chat_stream(user_message, history, token, model, temperature, max_tokens, sy
 custom_css = """
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+:root {
+    --bg: #121212;
+    --panel: #1a1a1a;
+    --panel-soft: #F5F5F5;
+    --text: #FFFFFF;
+    --text-dark: #000000;
+    --muted: #9E9E9E;
+    --hover: #E0E0E0;
+    --border: #9E9E9E;
+}
+
 * {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
     box-sizing: border-box;
 }
 
 body, .gradio-container {
-    background: radial-gradient(ellipse 70% 50% at 15% 10%, rgba(124, 58, 237, 0.18) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 40% at 85% 15%, rgba(56, 189, 248, 0.16) 0%, transparent 60%),
-                radial-gradient(ellipse 50% 50% at 50% 90%, rgba(16, 185, 129, 0.10) 0%, transparent 60%),
-                #070913 !important;
-    color: #f1f5f9 !important;
+    background: var(--bg) !important;
+    color: var(--text) !important;
     min-height: 100vh;
 }
 
@@ -138,171 +147,134 @@ body, .gradio-container {
     padding: 16px 20px 40px !important;
 }
 
-/* Glassmorphism Cards */
 #chatbot {
-    background: rgba(13, 18, 36, 0.78) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    border: 1px solid rgba(167, 139, 250, 0.22) !important;
-    border-radius: 22px !important;
-    box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 18px !important;
     overflow: hidden !important;
-    transition: border-color 0.3s ease;
 }
 
-#chatbot:hover {
-    border-color: rgba(167, 139, 250, 0.4) !important;
-}
-
-/* Chat Messages */
 .message-row {
     margin-bottom: 14px !important;
 }
 
-/* User Message */
 [data-testid="user"] {
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
-    color: #ffffff !important;
-    border-radius: 18px 18px 4px 18px !important;
-    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    background: var(--panel-soft) !important;
+    color: var(--text-dark) !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--border) !important;
 }
 
-/* Bot Message */
 [data-testid="bot"] {
-    background: rgba(23, 29, 56, 0.85) !important;
-    backdrop-filter: blur(12px) !important;
-    color: #e2e8f0 !important;
-    border-radius: 18px 18px 18px 4px !important;
-    border: 1px solid rgba(148, 163, 184, 0.16) !important;
-    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.3) !important;
+    background: var(--panel) !important;
+    color: var(--text) !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--border) !important;
 }
 
-/* Code Blocks in Chat */
 pre, code {
     font-family: 'JetBrains Mono', monospace !important;
     border-radius: 8px !important;
 }
 
 pre {
-    background: #0b0f19 !important;
-    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    background: #000000 !important;
+    border: 1px solid var(--border) !important;
     padding: 12px 16px !important;
+    color: var(--text) !important;
 }
 
 blockquote {
-    border-left: 3px solid #a78bfa !important;
-    background: rgba(167, 139, 250, 0.08) !important;
+    border-left: 3px solid var(--border) !important;
+    background: rgba(158, 158, 158, 0.12) !important;
     padding: 8px 14px !important;
     border-radius: 0 10px 10px 0 !important;
     margin: 8px 0 !important;
 }
 
-/* Input Area Command Bar */
 #msg-input textarea {
-    background: rgba(17, 24, 48, 0.92) !important;
-    border: 1.5px solid rgba(148, 163, 184, 0.22) !important;
-    border-radius: 16px !important;
-    color: #f8fafc !important;
+    background: var(--panel-soft) !important;
+    border: 1.5px solid var(--border) !important;
+    border-radius: 14px !important;
+    color: var(--text-dark) !important;
     padding: 14px 20px !important;
     font-size: 0.98rem !important;
-    transition: all 0.25s ease !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
 #msg-input textarea:focus {
-    border-color: #38bdf8 !important;
-    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.18), 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+    border-color: var(--border) !important;
     outline: none !important;
 }
 
-/* Buttons */
 #send-btn {
-    background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%) !important;
-    border: none !important;
-    border-radius: 16px !important;
-    color: #ffffff !important;
+    background: var(--panel-soft) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    color: var(--text-dark) !important;
     font-weight: 700 !important;
     font-size: 0.95rem !important;
-    box-shadow: 0 6px 24px rgba(124, 58, 237, 0.45) !important;
-    transition: all 0.25s ease !important;
     cursor: pointer !important;
 }
 
 #send-btn:hover {
-    transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 10px 30px rgba(124, 58, 237, 0.65) !important;
-}
-
-#send-btn:active {
-    transform: translateY(0) scale(0.98) !important;
+    background: var(--hover) !important;
 }
 
 #clear-btn {
-    background: rgba(239, 68, 68, 0.1) !important;
-    border: 1px solid rgba(239, 68, 68, 0.3) !important;
-    border-radius: 14px !important;
-    color: #fca5a5 !important;
+    background: var(--panel-soft) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    color: var(--text-dark) !important;
     font-weight: 600 !important;
-    transition: all 0.2s ease !important;
 }
 
 #clear-btn:hover {
-    background: rgba(239, 68, 68, 0.22) !important;
-    color: #ffffff !important;
-    transform: translateY(-1px) !important;
+    background: var(--hover) !important;
 }
 
-/* Quick Prompt Chips */
 .quick-chip {
-    background: rgba(30, 41, 59, 0.7) !important;
-    border: 1px solid rgba(148, 163, 184, 0.25) !important;
-    border-radius: 14px !important;
-    color: #cbd5e1 !important;
+    background: var(--panel-soft) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    color: var(--text-dark) !important;
     padding: 8px 14px !important;
     font-size: 0.82rem !important;
     font-weight: 500 !important;
-    transition: all 0.2s ease !important;
     cursor: pointer !important;
     text-align: left !important;
 }
 
 .quick-chip:hover {
-    background: rgba(56, 189, 248, 0.15) !important;
-    border-color: #38bdf8 !important;
-    color: #38bdf8 !important;
-    transform: translateY(-2px) !important;
+    background: var(--hover) !important;
+    border-color: var(--border) !important;
+    color: var(--text-dark) !important;
 }
 
-/* Settings Accordion */
 .accordion {
-    background: rgba(15, 23, 42, 0.65) !important;
-    backdrop-filter: blur(16px) !important;
-    border: 1px solid rgba(148, 163, 184, 0.18) !important;
-    border-radius: 18px !important;
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 16px !important;
     margin-top: 14px !important;
 }
 
-/* Inputs in settings */
 input, select {
-    background: rgba(17, 24, 48, 0.9) !important;
-    border: 1px solid rgba(148, 163, 184, 0.25) !important;
+    background: var(--panel-soft) !important;
+    border: 1px solid var(--border) !important;
     border-radius: 10px !important;
-    color: #f1f5f9 !important;
+    color: var(--text-dark) !important;
 }
 
 input:focus, select:focus {
-    border-color: #818cf8 !important;
+    border-color: var(--border) !important;
 }
 
 label {
-    color: #cbd5e1 !important;
+    color: var(--text) !important;
     font-size: 0.85rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.2px;
 }
 
-/* Smooth Scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -313,42 +285,36 @@ label {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(167, 139, 250, 0.3);
+    background: var(--muted);
     border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(167, 139, 250, 0.6);
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.45; transform: scale(0.92); }
+    background: var(--hover);
 }
 """
 
 
 # ── UI Architecture ──────────────────────────────────────────────────
-with gr.Blocks(title="Phantom AI Studio - Free Cloud Models", css=custom_css, theme=gr.themes.Soft(primary_hue="violet", neutral_hue="slate")) as demo:
+with gr.Blocks(title="Phantom AI Studio - Free Cloud Models") as demo:
+    demo.css = custom_css
+    demo.theme = gr.themes.Base()
 
     # Hero Header Banner
     gr.HTML("""
     <div style="text-align: center; padding: 1.4rem 0 0.8rem;">
         <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0.75rem;
-                    background: rgba(124, 58, 237, 0.12); border: 1px solid rgba(167, 139, 250, 0.35);
-                    border-radius: 30px; padding: 6px 18px; font-size: 0.82rem; font-weight: 600; color: #c4b5fd;">
-            <span style="width: 8px; height: 8px; background: #34d399; border-radius: 50%;
-                         box-shadow: 0 0 10px #34d399; display: inline-block; animation: pulse 2s infinite;"></span>
+                    background: #F5F5F5; border: 1px solid #9E9E9E;
+                    border-radius: 12px; padding: 6px 18px; font-size: 0.82rem; font-weight: 600; color: #000000;">
+            <span style="width: 8px; height: 8px; background: #9E9E9E; border-radius: 50%; display: inline-block;"></span>
             <span>Hugging Face Serverless Router &bull; Active &amp; Free</span>
         </div>
         <h1 style="font-family: 'Outfit', sans-serif !important; font-size: 2.6rem; font-weight: 800;
-                   letter-spacing: -0.8px; margin: 0 0 0.4rem;
-                   background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 40%, #a78bfa 75%, #38bdf8 100%);
-                   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                   letter-spacing: -0.8px; margin: 0 0 0.4rem; color: #FFFFFF;">
             Phantom AI Studio
         </h1>
-        <p style="color: #94a3b8; margin: 0 auto; max-width: 600px; font-size: 0.95rem; line-height: 1.5;">
-            Powered by <strong style="color:#e2e8f0;">Qwen 2.5</strong>, <strong style="color:#e2e8f0;">DeepSeek-V3</strong>, and <strong style="color:#e2e8f0;">Llama 3.3</strong> cloud models &mdash; lightning fast, free &amp; private.
+        <p style="color: #FFFFFF; margin: 0 auto; max-width: 600px; font-size: 0.95rem; line-height: 1.5;">
+            Powered by <strong style="color:#FFFFFF;">Qwen 2.5</strong>, <strong style="color:#FFFFFF;">DeepSeek-V3</strong>, and <strong style="color:#FFFFFF;">Llama 3.3</strong> cloud models &mdash; lightning fast, free &amp; private.
         </p>
     </div>
     """)
@@ -365,10 +331,10 @@ with gr.Blocks(title="Phantom AI Studio - Free Cloud Models", css=custom_css, th
 
     # Quick Suggestion Chips Row
     with gr.Row():
-        chip1 = gr.Button("💻 Write a Python web scraper", elem_classes=["quick-chip"], scale=1)
-        chip2 = gr.Button("🧠 Explain quantum computing simply", elem_classes=["quick-chip"], scale=1)
-        chip3 = gr.Button("⚡ Compare Qwen vs DeepSeek", elem_classes=["quick-chip"], scale=1)
-        chip4 = gr.Button("🚀 Brainstorm creative AI startup ideas", elem_classes=["quick-chip"], scale=1)
+        chip1 = gr.Button("Write a Python web scraper", elem_classes=["quick-chip"], scale=1)
+        chip2 = gr.Button("Explain quantum computing simply", elem_classes=["quick-chip"], scale=1)
+        chip3 = gr.Button("Compare Qwen vs DeepSeek", elem_classes=["quick-chip"], scale=1)
+        chip4 = gr.Button("Brainstorm creative AI startup ideas", elem_classes=["quick-chip"], scale=1)
 
     # Input Command Bar
     with gr.Row(equal_height=True):
@@ -381,20 +347,20 @@ with gr.Blocks(title="Phantom AI Studio - Free Cloud Models", css=custom_css, th
             max_lines=6,
             autofocus=True,
         )
-        send_btn = gr.Button("Send ✦", scale=1, elem_id="send-btn", min_width=110)
+        send_btn = gr.Button("Send", scale=1, elem_id="send-btn", min_width=110)
 
     # Auxiliary Action Bar
     with gr.Row():
-        clear_btn = gr.Button("🗑️ Clear Chat", elem_id="clear-btn", scale=1)
+        clear_btn = gr.Button("Clear Chat", elem_id="clear-btn", scale=1)
         gr.HTML("""
         <div style="display:flex; align-items:center; justify-content:flex-end; height:100%; gap:12px; color:#64748b; font-size:0.8rem;">
-            <span>⚡ Streaming enabled</span>
-            <span>🔒 Session strictly in-memory</span>
+            <span>Streaming enabled</span>
+            <span>Session strictly in-memory</span>
         </div>
         """, scale=5)
 
     # Model & Parameter Settings
-    with gr.Accordion("⚙️ Model & Studio Settings", open=False, elem_classes=["accordion"]):
+    with gr.Accordion("Model & Studio Settings", open=False, elem_classes=["accordion"]):
         with gr.Row():
             model_choice = gr.Dropdown(
                 choices=FREE_MODELS,
@@ -490,11 +456,27 @@ with gr.Blocks(title="Phantom AI Studio - Free Cloud Models", css=custom_css, th
 
 
 if __name__ == "__main__":
-    # Allow external controller to select port via environment variable
-    try:
-        port = int(__import__("os").environ.get("GRADIO_SERVER_PORT", "5050"))
-    except Exception:
-        port = 5050
+    requested_port = int(__import__("os").environ.get("GRADIO_SERVER_PORT", "5050"))
+    port = requested_port
+
+    def find_free_port(start_port: int = requested_port, max_tries: int = 100) -> int:
+        for candidate in range(start_port, start_port + max_tries):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    sock.bind(("0.0.0.0", candidate))
+                    return candidate
+                except OSError:
+                    continue
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("0.0.0.0", 0))
+            return sock.getsockname()[1]
+
+    port = find_free_port(requested_port)
+    if port != requested_port:
+        print(f"Port {requested_port} is busy; using free port {port} instead.")
+    os.environ["GRADIO_SERVER_PORT"] = str(port)
 
     BROWSER_HOME_HTML = """
     <!doctype html>
@@ -502,27 +484,24 @@ if __name__ == "__main__":
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>RAAMA Browser</title>
+      <title>Phantom Browser</title>
       <style>
         :root {
-          --bg: #071025;
-          --panel: rgba(15, 23, 42, 0.82);
-          --panel-strong: rgba(15, 23, 42, 0.96);
-          --border: rgba(148, 163, 184, 0.18);
-          --soft: #94a3b8;
-          --text: #e2e8f0;
-          --primary: #38bdf8;
-          --accent: #8b5cf6;
-          --accent-2: #22c55e;
+          --bg: #121212;
+          --panel: #1a1a1a;
+          --panel-soft: #F5F5F5;
+          --text: #FFFFFF;
+          --text-dark: #000000;
+          --muted: #9E9E9E;
+          --hover: #E0E0E0;
+          --border: #9E9E9E;
         }
         * { box-sizing: border-box; }
         body {
           margin: 0;
           min-height: 100vh;
           font-family: Inter, Segoe UI, Arial, sans-serif;
-          background: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 28%),
-                      radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.16), transparent 24%),
-                      var(--bg);
+          background: var(--bg);
           color: var(--text);
         }
         .wrap {
@@ -530,10 +509,8 @@ if __name__ == "__main__":
           margin: 48px auto 24px;
           padding: 22px 24px 26px;
           border-radius: 28px;
-          background: rgba(15, 23, 42, 0.72);
+          background: var(--panel);
           border: 1px solid var(--border);
-          box-shadow: 0 28px 60px rgba(2, 6, 23, 0.45);
-          backdrop-filter: blur(10px);
         }
         .brand {
           display: flex;
@@ -543,15 +520,14 @@ if __name__ == "__main__":
           font-size: 0.8rem;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: #c4b5fd;
+          color: var(--text);
           font-weight: 700;
         }
         .brand .dot {
           width: 10px;
           height: 10px;
           border-radius: 50%;
-          background: var(--accent-2);
-          box-shadow: 0 0 12px rgba(34, 197, 94, 0.85);
+          background: var(--hover);
         }
         h1 {
           margin: 14px 0 10px;
@@ -563,7 +539,7 @@ if __name__ == "__main__":
         }
         .hero {
           text-align: center;
-          color: var(--soft);
+          color: var(--muted);
           font-size: 1rem;
           margin-bottom: 26px;
         }
@@ -575,9 +551,8 @@ if __name__ == "__main__":
           align-items: center;
           gap: 10px;
           border-radius: 22px;
-          border: 1px solid rgba(148, 163, 184, 0.2);
-          background: rgba(15, 23, 42, 0.9);
-          box-shadow: 0 18px 36px rgba(15, 23, 42, 0.42);
+          border: 1px solid var(--border);
+          background: var(--panel-soft);
         }
         .search-shell input {
           flex: 1;
@@ -586,23 +561,25 @@ if __name__ == "__main__":
           background: transparent;
           outline: none;
           font-size: 1.08rem;
-          color: var(--text);
+          color: var(--text-dark);
           padding: 12px 8px;
         }
         .search-shell input::placeholder {
-          color: #64748b;
+          color: #666666;
         }
         .search-btn {
           appearance: none;
-          border: none;
-          background: linear-gradient(135deg, var(--primary), var(--accent));
-          color: #03111d;
+          border: 1px solid var(--border);
+          background: var(--panel-soft) !important;
+          color: var(--text-dark);
           font-weight: 800;
           font-size: 0.96rem;
           border-radius: 14px;
           padding: 12px 20px;
           cursor: pointer;
-          box-shadow: 0 10px 22px rgba(56, 189, 248, 0.28);
+        }
+        .search-btn:hover {
+          background: var(--hover) !important;
         }
         .actions {
           display: flex;
@@ -617,16 +594,19 @@ if __name__ == "__main__":
           justify-content: center;
           padding: 11px 18px;
           border-radius: 12px;
-          color: var(--text);
+          color: var(--text-dark);
           text-decoration: none;
           font-weight: 700;
           border: 1px solid var(--border);
-          background: rgba(255,255,255,0.02);
+          background: var(--panel-soft);
+        }
+        .btn:hover {
+          background: var(--hover);
         }
         .btn.primary {
-          background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(139, 92, 246, 0.22));
-          border-color: rgba(56, 189, 248, 0.4);
-          color: #dbeafe;
+          background: var(--panel-soft) !important;
+          border-color: var(--border);
+          color: var(--text-dark);
         }
         .cards {
           display: flex;
@@ -636,19 +616,20 @@ if __name__ == "__main__":
         }
         .card {
           flex: 1 1 220px;
-          background: rgba(15,23,42,0.7);
+          background: var(--panel-soft);
           border: 1px solid var(--border);
           border-radius: 14px;
           padding: 16px;
+          color: var(--text-dark);
         }
         .card h3 {
           margin: 0 0 8px;
           font-size: 0.98rem;
-          color: #dbeafe;
+          color: var(--text-dark);
         }
         .card p {
           margin: 0;
-          color: var(--soft);
+          color: var(--text-dark);
           line-height: 1.55;
           font-size: 0.9rem;
         }
@@ -690,7 +671,7 @@ if __name__ == "__main__":
     </html>
     """
 
-    server_app = FastAPI(title="RAAMA Browser")
+    server_app = FastAPI(title="Phantom Browser")
 
     @server_app.get("/", include_in_schema=False)
     async def browser_home():
