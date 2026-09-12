@@ -329,7 +329,7 @@ label {
 
 
 # ── UI Architecture ──────────────────────────────────────────────────
-with gr.Blocks(title="RAAMA AI Studio - Free Cloud Models", css=custom_css, theme=gr.themes.Soft(primary_hue="violet", neutral_hue="slate")) as demo:
+with gr.Blocks(title="Phantom AI Studio - Free Cloud Models", css=custom_css, theme=gr.themes.Soft(primary_hue="violet", neutral_hue="slate")) as demo:
 
     # Hero Header Banner
     gr.HTML("""
@@ -345,7 +345,7 @@ with gr.Blocks(title="RAAMA AI Studio - Free Cloud Models", css=custom_css, them
                    letter-spacing: -0.8px; margin: 0 0 0.4rem;
                    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 40%, #a78bfa 75%, #38bdf8 100%);
                    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-            RAAMA AI Studio
+            Phantom AI Studio
         </h1>
         <p style="color: #94a3b8; margin: 0 auto; max-width: 600px; font-size: 0.95rem; line-height: 1.5;">
             Powered by <strong style="color:#e2e8f0;">Qwen 2.5</strong>, <strong style="color:#e2e8f0;">DeepSeek-V3</strong>, and <strong style="color:#e2e8f0;">Llama 3.3</strong> cloud models &mdash; lightning fast, free &amp; private.
@@ -433,7 +433,7 @@ with gr.Blocks(title="RAAMA AI Studio - Free Cloud Models", css=custom_css, them
     # Footer
     gr.HTML("""
     <div style="text-align: center; margin-top: 1.8rem; color: #475569; font-size: 0.8rem;">
-        RAAMA AI Studio &bull; OpenAI-compatible Hugging Face Cloud Router &bull; Built with Gradio
+        Phantom AI Studio &bull; OpenAI-compatible Hugging Face Cloud Router &bull; Built with Gradio
     </div>
     """)
 
@@ -656,12 +656,12 @@ if __name__ == "__main__":
     </head>
     <body>
       <div class="wrap">
-        <div class="brand"><span class="dot"></span> RAAMA Browser</div>
+        <div class="brand"><span class="dot"></span> Phantom Browser</div>
         <h1>Search smarter. Browse privately.</h1>
         <p class="hero">A private, in-memory browsing experience with an AI copilot built in.</p>
 
         <form class="search-shell" action="https://duckduckgo.com/" method="get" target="_blank">
-          <input type="text" name="q" placeholder="Search the web or ask RAAMA..." aria-label="Search" />
+          <input type="text" name="q" placeholder="Search the web or ask Phantom..." aria-label="Search" />
           <button class="search-btn" type="submit">Search</button>
         </form>
 
@@ -673,15 +673,15 @@ if __name__ == "__main__":
 
         <div class="cards">
           <div class="card">
-            <h3>🛡️ Private Mode</h3>
+            <h3>Private Mode</h3>
             <p>No disk cache or persistent session data. Your browsing stays in memory.</p>
           </div>
           <div class="card">
-            <h3>🔒 Secure Navigation</h3>
+            <h3>Secure Navigation</h3>
             <p>HTTPS upgrades and tracker blocking keep your sessions cleaner and safer.</p>
           </div>
           <div class="card">
-            <h3>🤖 AI Copilot</h3>
+            <h3>AI Copilot</h3>
             <p>Jump into the AI Studio for chats, coding help, and research assistance.</p>
           </div>
         </div>

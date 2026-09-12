@@ -1,4 +1,4 @@
-# RAAMA AI Incognito Browser
+# Phantom AI Incognito Browser
 
 A privacy-focused desktop browser with an integrated AI assistant powered by free Hugging Face cloud models. Run locally or in Docker. All conversations stay in memory, never persisted to disk.
 
@@ -32,8 +32,8 @@ A privacy-focused desktop browser with an integrated AI assistant powered by fre
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/mchandhan/ai-incognito-browser.git
-   cd ai-incognito-browser
+   git clone https://github.com/mchandhan/phantom-browser.git
+   cd phantom-browser
    ```
 
 2. Create a virtual environment (recommended):
@@ -210,4 +210,4 @@ MIT License - See LICENSE file for details
 ## Support
 
 For issues, questions, or feature requests, please open an issue on GitHub:
-https://github.com/mchandhan/ai-incognito-browser/issues
+https://github.com/mchandhan/phantom-browser/issues

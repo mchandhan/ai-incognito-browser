@@ -13,7 +13,7 @@ APP_PORT = int(os.environ.get("APP_PORT", "5050"))
 BROWSER_PORT = int(os.environ.get("BROWSER_PORT", "5000"))
 
 # If running in a container/headless mode, start the Gradio backend and exit
-HEADLESS = os.environ.get("RAAMA_HEADLESS") == "1" or "--headless" in sys.argv
+HEADLESS = os.environ.get("PHANTOM_HEADLESS") == "1" or "--headless" in sys.argv
 if HEADLESS:
     port = int(os.environ.get("BACKEND_PORT", str(APP_PORT)))
     req = urllib.request.Request(f"http://localhost:{port}", headers={"User-Agent": "RAAMA"})
@@ -83,7 +83,7 @@ STARTPAGE_HTML = """
 <html>
 <head>
   <meta charset="utf-8">
-  <title>RAAMA Privacy Browser</title>
+  <title>Phantom Privacy Browser</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body{background:#071025;color:#e6eef8;font-family:Inter,Segoe UI,Helvetica,Arial;margin:0;}
